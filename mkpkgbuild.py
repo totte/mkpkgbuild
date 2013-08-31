@@ -23,6 +23,8 @@
 # TODO 'haskell-hasktags' replaces 'hasktags'
 # TODO 'haskell-cabal-install' replaces 'cabal-install'
 # TODO 'xmonad' optdepends=('xorg-xmessage: for displaying visual error messages')
+# TODO If entered pkgver != previous pkgver, pkgrel is to default to 1
+# TODO Should '1.*' be interpreted as '>=1.0' and '<2.0' instead of only the former?
 
 import os
 import datetime
@@ -124,6 +126,40 @@ post_remove() {{
 
 # TODO Make this inputable
 GHC_INSTALLED_VERSION = "7.6.3-1"
+
+# For debug/testing purposes
+PACKAGES = ('transformers',
+            'mtl',
+            'text',
+            'parsec',
+            'network',
+            'random',
+            'zlib',
+            'utf8-string',
+            'extensible-exceptions',
+            'terminfo',
+            'haskeline',
+            'mmap',
+            'dataenc',
+            'hashed-storage',
+            'hslogger',
+            'html',
+            'HTTP',
+            'primitive',
+            'regex-base',
+            'regex-posix',
+            'regex-compat',
+            'syb',
+            'tar',
+            'vector',
+            'bytestring-show',
+            'X11',
+            'X11-xft',
+            'cabal-install',
+            'hasktags',
+            'xmonad',
+            'xmonad-contrib',
+            'xmonad-utils')
 
 
 class CancelledError(Exception): pass
@@ -236,14 +272,15 @@ def scrape_dependencies(url):
                     for m in [min_value, max_value]:
                         if '*' in m:
                             m = '>=' + m.replace('*', '0')
-                        elif '=' and '<' not in m:
-                                m = '=' + m
+                        elif '=' not in m and '<' not in m:
+                            m = '=' + m
                     value = min_value, max_value
                 else:
                     if '*' in value:
                         value = '>=' + value.replace('*', '0')
-                    elif '=' and '<' not in value:
-                            value = '=' + value
+                    elif '=' not in value and '<' not in value:
+                        print(value)
+                        value = '=' + value
 
             result_dictionary[key] = value
         
@@ -605,5 +642,6 @@ def get_string(message, name='string', default=None,
             print("ERROR", err)
 
 
-#print(scrape_dependencies('http://hackage.haskell.org/package/mmap'))
+#for P in PACKAGES:
+#    print(P + ':', scrape_dependencies('http://hackage.haskell.org/package/' + P))
 main()
