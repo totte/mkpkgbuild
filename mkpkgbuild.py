@@ -122,6 +122,10 @@ post_remove() {{
 }}
 """
 
+# TODO Make this inputable
+GHC_INSTALLED_VERSION = "7.6.3-1"
+
+
 class CancelledError(Exception): pass
 
 
@@ -195,42 +199,49 @@ def scrape_version(url, match):
 
 
 # Return dependencies for latest version
-def scrape_dependencies(url, match):
+def scrape_dependencies(url):
     with urllib.request.urlopen(url) as response:
         page = response.read()
         text = page.decode('utf-8')
         soup = bs(text)
-        one = soup.find("th", text=match).next_sibling
+
+        result_dictionary = dict(ghc = "=" + GHC_INSTALLED_VERSION)
+
+        # TODO Merge these somehow
+        one = soup.find("th", text="Dependencies").next_sibling
         two = str(one).split(sep=" <b>or</b><br/>")
         three = two[-1]
         four = bs(three)
         dependencies = four.text.split(sep=", ")
-        # TODO Make this inputable
-        ghc_installed_version = "7.6.3-1"
-        tmp = ['ghc=' + ghc_installed_version]
+
+        # # Debug
+        # dependencies.append('foo (1.0)')
+        # print("dependencies: ", dependencies, "\n")
+
         for d in dependencies:
-            meta = d.split(sep=" ")
-            for m in meta:
-                if '(' in m:
-                    if '<' in m:
-                        mv = m.replace('(','').replace(')','')
-                    elif '>' in m:
-                        mv = m.replace('(','').replace(')','')
-                    elif '≤' in m:
-                        mv = m.replace('(','').replace(')','').replace('≤', '<=')
-                    elif '≥' in m:
-                        mv = m.replace('(','').replace(')','').replace('≥', '>=')
-                    elif '*' in m:
-                        mv = ">=" + m.replace('(','').replace(')','').replace('*', '0')
-                    else:
-                        mv = "=" + m.replace('(','').replace(')','')
-                    m_ = mp + mv
-                else:
-                    mp = "haskell-" + m
-            tmp.append(m_)
-            result = ""
-            for i in tmp:
-                result += "'" + i + "' "
+            key, sep, value = d.partition(' ')
+            key = key.strip()
+
+            # For Haskell packages
+            key = "haskell-" + key
+
+            if not sep:
+                result_dictionary[key] = None
+
+            value = value.strip('()')
+
+            value = value.replace('≤', '<=').replace('≥', '>=')
+            if '*' in value:
+                value = ">=" + value.replace('*', '0')
+            if value and '=' not in value:
+                    value = "=" + value
+
+            result_dictionary[key] = value
+
+        # TODO return in alphabetical order
+        result = ""
+        for r in result_dictionary:
+            result += "'" + r + result_dictionary[r] + "' "
         return result.strip()
 
 
@@ -434,8 +445,8 @@ def get_information(information):
     if 'depends' in exists:
         print("  Previous dependencies): ", exists['depends'])
     print("  Checking Hackage...")
-    print("  Dependencies: ", scrape_dependencies("http://hackage.haskell.org/package/" + _hkgname, "Dependencies"))
-    depends = get_string("Enter dependencies", "dependencies", scrape_dependencies("http://hackage.haskell.org/package/" + _hkgname, "Dependencies"))
+    print("  Dependencies: ", scrape_dependencies("http://hackage.haskell.org/package/" + _hkgname))
+    depends = get_string("Enter dependencies", "dependencies", scrape_dependencies("http://hackage.haskell.org/package/" + _hkgname))
     if not depends:
         raise CancelledError()
 
@@ -583,3 +594,4 @@ def get_string(message, name="string", default=None,
 
 
 main()
+#print(scrape_dependencies("http://hackage.haskell.org/package/text"))
