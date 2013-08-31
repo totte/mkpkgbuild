@@ -161,13 +161,13 @@ def main():
     while True:
         try:
             get_information(information)
-            create_directory(information["pkgname"])
+            create_directory(information['pkgname'])
             write_pkgbuild(**information)
             write_install(**information)
         except CancelledError:
-            print("Cancelled")
-        if (get_string("\nCreate another? (y/n)", default="y").lower()
-                not in {"y", "yes"}):
+            print("Cancelled.")
+        if (get_string("\nCreate another? (y/n)", default='y').lower()
+                not in {'y', 'yes'}):
             break
 
 
@@ -185,7 +185,7 @@ def scrape_license(url, match):
         page = response.read()
         text = page.decode('utf-8')
         soup = bs(text)
-        return soup.find("th", text=match).next_sibling.string
+        return soup.find('th', text=match).next_sibling.string
 
 
 # Return latest version
@@ -194,7 +194,7 @@ def scrape_version(url, match):
         page = response.read()
         text = page.decode('utf-8')
         soup = bs(text)
-        one = soup.find("th", text=match).next_sibling
+        one = soup.find('th', text=match).next_sibling
         return one.b.string
 
 
@@ -205,14 +205,14 @@ def scrape_dependencies(url):
         text = page.decode('utf-8')
         soup = bs(text)
 
-        result_dictionary = dict(ghc = "=" + GHC_INSTALLED_VERSION)
+        result_dictionary = dict(ghc = '=' + GHC_INSTALLED_VERSION)
 
         # TODO Merge these somehow
-        one = soup.find("th", text="Dependencies").next_sibling
-        two = str(one).split(sep=" <b>or</b><br/>")
+        one = soup.find('th', text='Dependencies').next_sibling
+        two = str(one).split(sep=' <b>or</b><br/>')
         three = two[-1]
         four = bs(three)
-        dependencies = four.text.split(sep=", ")
+        dependencies = four.text.split(sep=', ')
 
         # # Debug
         # dependencies.append('foo (1.0)')
@@ -223,26 +223,27 @@ def scrape_dependencies(url):
             key = key.strip()
 
             # For Haskell packages
-            key = "haskell-" + key
+            key = 'haskell-' + key
 
             if not sep:
                 result_dictionary[key] = None
 
             value = value.strip('()').replace('≤', '<=').replace('≥', '>=')
 
-            if ' & ' in value:
-                min_value, sep, max_value = value.partition(' & ')
-                for m in [min_value, max_value]:
-                    if '*' in m:
-                        m = ">=" + m.replace('*', '0')
-                    if '=' not in m:
-                            m = "=" + m
-                value = min_value, max_value
-            else:
-                if '*' in value:
-                    value = ">=" + value.replace('*', '0')
-                if value and '=' not in value:
-                        value = "=" + value
+            if value:
+                if ' & ' in value:
+                    min_value, sep, max_value = value.partition(' & ')
+                    for m in [min_value, max_value]:
+                        if '*' in m:
+                            m = '>=' + m.replace('*', '0')
+                        elif '=' and '<' not in m:
+                                m = '=' + m
+                    value = min_value, max_value
+                else:
+                    if '*' in value:
+                        value = '>=' + value.replace('*', '0')
+                    elif '=' and '<' not in value:
+                            value = '=' + value
 
             result_dictionary[key] = value
         
@@ -288,9 +289,9 @@ def read_pkgbuild(pkgname):
 
     pkgbuild = dict()
  
-    with open(pkgname + "/PKGBUILD") as filebuffer:
+    with open(pkgname + '/PKGBUILD') as filebuffer:
         lines = filebuffer.readlines()
-        # "with" statement closes :)
+        # 'with' statement closes :)
 
     p = None
 
@@ -340,38 +341,38 @@ def create_directory(path):
 def get_information(information):
 
     # Single
-    repository = get_string("Enter repository", "repository",
-            information["repository"])
+    repository = get_string("Enter repository", 'repository',
+            information['repository'])
     if not repository:
         raise CancelledError()
 
     # Single
-    maintainer_name = get_string("Enter your name", "maintainer_name",
-            information["maintainer_name"])
+    maintainer_name = get_string("Enter your name", 'maintainer_name',
+            information['maintainer_name'])
     if not maintainer_name:
         raise CancelledError()
 
     # Single
-    maintainer_alias = get_string("Enter your alias", "maintainer_alias",
-            information["maintainer_alias"])
+    maintainer_alias = get_string("Enter your alias", 'maintainer_alias',
+            information['maintainer_alias'])
     if not maintainer_alias:
         raise CancelledError()
 
     # Single
-    maintainer_email = get_string("Enter your e-mail", "maintainer_email",
-            information["maintainer_email"])
+    maintainer_email = get_string("Enter your e-mail", 'maintainer_email',
+            information['maintainer_email'])
     if not maintainer_email:
         raise CancelledError()
 
     # Single
-    _hkgname = get_string("Enter Hackage name", "_hkgname",
-            information["_hkgname"])
+    _hkgname = get_string("Enter Hackage name", '_hkgname',
+            information['_hkgname'])
     if not _hkgname:
         raise CancelledError()
 
     # Single
-    pkgname = get_string("Enter package name", "pkgname",
-            "haskell-" + _hkgname)
+    pkgname = get_string("Enter package name", 'pkgname',
+            'haskell-' + _hkgname)
     if not pkgname:
         raise CancelledError()
 
@@ -384,16 +385,16 @@ def get_information(information):
     if 'pkgver' in exists:
         print("  Previous version: ", exists['pkgver'])
     print("  Checking Hackage...")
-    print("  Latest version: ", scrape_version("http://hackage.haskell.org/package/" + _hkgname, "Versions"))
-    pkgver = get_string("Enter package version", "pkgver",
-            scrape_version("http://hackage.haskell.org/package/" + _hkgname, "Versions"))
+    print("  Latest version: ", scrape_version('http://hackage.haskell.org/package/' + _hkgname, 'Versions'))
+    pkgver = get_string("Enter package version", 'pkgver',
+            scrape_version('http://hackage.haskell.org/package/' + _hkgname, 'Versions'))
     if not pkgver:
         raise CancelledError()
 
     # Single
     if 'pkgrel' in exists:
         print("  Previous release: ", exists['pkgrel'])
-    pkgrel = get_string("Enter package release", "pkgrel",
+    pkgrel = get_string("Enter package release", 'pkgrel',
             int(exists['pkgrel']) + 1 if exists else 1)
     if not pkgrel:
         raise CancelledError()
@@ -401,7 +402,7 @@ def get_information(information):
     # Single
     if 'pkgdesc' in exists:
         print("  Previous description: ", exists['pkgdesc'])
-    pkgdesc = get_string("Enter package description", "pkgdesc",
+    pkgdesc = get_string("Enter package description", 'pkgdesc',
             exists['pkgdesc'])
     if not pkgdesc:
         raise CancelledError()
@@ -436,79 +437,79 @@ def get_information(information):
         raise CancelledError()
 
     # Single
-    #url = get_string("Enter url", "url")
+    #url = get_string("Enter url", 'url')
 
     # Single
     if 'license' in exists:
         print("  Previous license: ", exists['license'])
     print("  Checking Hackage...")
-    print("  License: ", scrape_license("http://hackage.haskell.org/package/" + _hkgname, "License"))
-    license = get_string("Enter license", "license", scrape_license("http://hackage.haskell.org/package/" + _hkgname, "License"))
+    print("  License: ", scrape_license('http://hackage.haskell.org/package/' + _hkgname, 'License'))
+    license = get_string("Enter license", 'license', scrape_license('http://hackage.haskell.org/package/' + _hkgname, 'License'))
     if not license:
         raise CancelledError()
 
     # Single, optional
     if 'groups' in exists:
         print("  Previous group(s): ", exists['groups'])
-    groups = get_string("Enter group(s) (optional)", "groups")
+    groups = get_string("Enter group(s) (optional)", 'groups')
 
     # Single
     if 'depends' in exists:
         print("  Previous dependencies): ", exists['depends'])
     print("  Checking Hackage...")
-    print("  Dependencies: ", scrape_dependencies("http://hackage.haskell.org/package/" + _hkgname))
-    depends = get_string("Enter dependencies", "dependencies", scrape_dependencies("http://hackage.haskell.org/package/" + _hkgname))
+    print("  Dependencies: ", scrape_dependencies('http://hackage.haskell.org/package/' + _hkgname))
+    depends = get_string("Enter dependencies", 'dependencies', scrape_dependencies('http://hackage.haskell.org/package/' + _hkgname))
     if not depends:
         raise CancelledError()
 
     # Single, optional
     if 'optdepends' in exists:
         print("  Previous optional dependencies): ", exists['optdepends'])
-    optdepends = get_string("Enter optional dependencies (optional)", "optdepends")
+    optdepends = get_string("Enter optional dependencies (optional)", 'optdepends')
 
     # Single, optional
     if 'makedepends' in exists:
         print("  Previous make-dependencies): ", exists['makedepends'])
-    makedepends = get_string("Enter make-dependencies (optional)", "makedepends")
+    makedepends = get_string("Enter make-dependencies (optional)", 'makedepends')
 
     # Single, optional
     if 'checkdepends' in exists:
         print("  Previous check-dependencies): ", exists['checkdepends'])
-    checkdepends = get_string("Enter check-dependencies (optional)", "checkdepends")
+    checkdepends = get_string("Enter check-dependencies (optional)", 'checkdepends')
 
     # Single, optional
     if 'provides' in exists:
         print("  Previous provides): ", exists['provides'])
-    provides = get_string("Enter provides (optional)", "provides")
+    provides = get_string("Enter provides (optional)", 'provides')
 
     # Single, optional
     if 'conflicts' in exists:
         print("  Previous conflicts): ", exists['conflicts'])
-    conflicts = get_string("Enter conflicts (optional)", "conflicts")
+    conflicts = get_string("Enter conflicts (optional)", 'conflicts')
 
     # Single, optional
     if 'replaces' in exists:
         print("  Previous replaces): ", exists['replacess'])
-    replaces = get_string("Enter replaces (optional)", "replaces")
+    replaces = get_string("Enter replaces (optional)", 'replaces')
 
     # Single, optional
     if 'options' in exists:
         print("  Previous options): ", exists['options'])
-    options = get_string("Enter options (optional)", "option",
+    options = get_string("Enter options (optional)", 'option',
             exists['options'])
 
     # Single
-    #install = get_string("Enter install-file", "install")
+    #install = get_string("Enter install-file", 'install')
 
     # Single, optional
-    #changelog = get_string("Enter changelog-file (optional)", "changelog")
+    #changelog = get_string("Enter changelog-file (optional)", 'changelog')
 
     # Single
-    #source = get_string("Enter source", "replaces")
+    #source = get_string("Enter source", 'replaces')
 
     # Download package and get checksum
-    filename = _hkgname + "-" + pkgver + ".tar.gz"
-    url = "http://hackage.haskell.org/packages/archive/" + _hkgname + "/" + pkgver + "/" + _hkgname + "-" + pkgver + ".tar.gz"
+    filename = _hkgname + '-' + pkgver + '.tar.gz'
+    url = 'http://hackage.haskell.org/packages/archive/' + _hkgname + '/' + pkgver + '/' + _hkgname + '-' + pkgver + '.tar.gz'
     with urllib.request.urlopen(url) as response, open(filename, 'wb') as out_file:
         shutil.copyfileobj(response, out_file)
     checksum = hashfile(open(filename, 'rb'), hashlib.sha512())
@@ -550,8 +551,8 @@ def write_pkgbuild(date, repository, maintainer_name, maintainer_alias,
     content = PKGBUILD_TEMPLATE.format(**locals())
     fh = None
     try:
-        filename = pkgname + "/PKGBUILD"
-        fh = open(filename, "w", encoding="utf8")
+        filename = pkgname + '/PKGBUILD'
+        fh = open(filename, 'w', encoding='utf8')
         fh.write(content)
     except EnvironmentError as err:
         print("\nERROR", err)
@@ -569,8 +570,8 @@ def write_install(date, repository, maintainer_name, maintainer_alias,
     content = INSTALL_TEMPLATE.format(**locals())
     fh = None
     try:
-        filename = pkgname + "/" + pkgname + ".install"
-        fh = open(filename, "w", encoding="utf8")
+        filename = pkgname + '/' + pkgname + '.install'
+        fh = open(filename, 'w', encoding='utf8')
         fh.write(content)
     except EnvironmentError as err:
         print("ERROR", err)
@@ -582,9 +583,9 @@ def write_install(date, repository, maintainer_name, maintainer_alias,
 
 
 # TODO Print previous value\n, scraped value\n, input [default value]:
-def get_string(message, name="string", default=None,
+def get_string(message, name='string', default=None,
         minimum_length=0, maximum_length=80):
-    message += ": " if default is None else " [{0}]: ".format(default)
+    message += ': ' if default is None else ' [{0}]: '.format(default)
     while True:
         try:
             line = input(message)
@@ -592,7 +593,7 @@ def get_string(message, name="string", default=None,
                 if default is not None:
                     return default
                 if minimum_length == 0:
-                    return ""
+                    return ''
                 else:
                     raise ValueError("{0} may not be empty".format(name))
             if not (minimum_length <= len(line) <= maximum_length):
@@ -604,5 +605,5 @@ def get_string(message, name="string", default=None,
             print("ERROR", err)
 
 
-#main()
-print(scrape_dependencies("http://hackage.haskell.org/package/parsec"))
+#print(scrape_dependencies('http://hackage.haskell.org/package/mmap'))
+main()
