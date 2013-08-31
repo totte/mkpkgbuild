@@ -228,20 +228,31 @@ def scrape_dependencies(url):
             if not sep:
                 result_dictionary[key] = None
 
-            value = value.strip('()')
+            value = value.strip('()').replace('≤', '<=').replace('≥', '>=')
 
-            value = value.replace('≤', '<=').replace('≥', '>=')
-            if '*' in value:
-                value = ">=" + value.replace('*', '0')
-            if value and '=' not in value:
-                    value = "=" + value
+            if ' & ' in value:
+                min_value, sep, max_value = value.partition(' & ')
+                for m in [min_value, max_value]:
+                    if '*' in m:
+                        m = ">=" + m.replace('*', '0')
+                    if '=' not in m:
+                            m = "=" + m
+                value = min_value, max_value
+            else:
+                if '*' in value:
+                    value = ">=" + value.replace('*', '0')
+                if value and '=' not in value:
+                        value = "=" + value
 
             result_dictionary[key] = value
-
-        # TODO return in alphabetical order
+        
         result = ""
-        for r in result_dictionary:
-            result += "'" + r + result_dictionary[r] + "' "
+        for r in sorted(result_dictionary):
+            if isinstance(result_dictionary[r], tuple):
+                for v in result_dictionary[r]:
+                    result += "'" + r + v + "' "
+            else:
+                result += "'" + r + result_dictionary[r] + "' "
         return result.strip()
 
 
@@ -593,5 +604,5 @@ def get_string(message, name="string", default=None,
             print("ERROR", err)
 
 
-main()
-#print(scrape_dependencies("http://hackage.haskell.org/package/text"))
+#main()
+print(scrape_dependencies("http://hackage.haskell.org/package/parsec"))
