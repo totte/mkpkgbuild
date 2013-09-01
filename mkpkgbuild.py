@@ -235,6 +235,7 @@ def scrape_version(url, match):
 
 
 # Return dependencies for latest version
+# TODO Return as lowercase
 def scrape_dependencies(url):
     with urllib.request.urlopen(url) as response:
         page = response.read()
@@ -526,14 +527,14 @@ def get_information(information):
 
     # Single, optional
     if 'replaces' in exists:
-        print("  Previous replaces): ", exists['replacess'])
+        print("  Previous replaces): ", exists['replaces'])
     replaces = get_string("Enter replaces (optional)", 'replaces')
 
     # Single, optional
     if 'options' in exists:
         print("  Previous options): ", exists['options'])
-    options = get_string("Enter options (optional)", 'option',
-            exists['options'])
+    options = get_string("Enter options (optional)", 'options',
+            exists['options'] if 'options' in exists else None)
 
     # Single
     #install = get_string("Enter install-file", 'install')
@@ -621,7 +622,7 @@ def write_install(date, repository, maintainer_name, maintainer_alias,
 
 # TODO Print previous value\n, scraped value\n, input [default value]:
 def get_string(message, name='string', default=None,
-        minimum_length=0, maximum_length=80):
+        minimum_length=0, maximum_length=128):
     message += ': ' if default is None else ' [{0}]: '.format(default)
     while True:
         try:
@@ -642,6 +643,13 @@ def get_string(message, name='string', default=None,
             print("ERROR", err)
 
 
-#for P in PACKAGES:
-#    print(P + ':', scrape_dependencies('http://hackage.haskell.org/package/' + P))
+# for P in PACKAGES:
+#     print(P + ':', scrape_dependencies('http://hackage.haskell.org/package/' + P))
+
+# pkgname = 'haskell-x11'
+# exists = read_pkgbuild(pkgname)
+# if exists:
+#     print("  Existing PKGBUILD found in ./" + pkgname + "/PKGBUILD:")
+#     print(exists)
+
 main()
