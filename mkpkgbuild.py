@@ -17,6 +17,7 @@
 # along with this program, see LICENSE in the root of the project directory.
 # If not, see <http://www.gnu.org/licenses/>.
 
+# TODO Remember to use pdb for debugging...
 # TODO Download and read _hkgname.cabal file instead of scraping
 # TODO Read .mkpkgbuild.conf for maintainer* data
 # TODO Read .PKGBUILD.template and .pkgname.install.template for template data
@@ -33,136 +34,88 @@ import shutil
 import hashlib
 from bs4 import BeautifulSoup as bs
 
-
-PKGBUILD_TEMPLATE = """# {repository} Packages for Chakra, part of www.chakra-project.org
-# Maintainer: {maintainer_name} ({maintainer_alias}) <{maintainer_email}>
-# Contributors: Stephen McIntosh <stephenmac7[at]gmail[dot]com>
-#               Thomas Dziedzic <gostrc@gmail.com>
-#               Vesa Kaihlavirta <vesa@archlinux.org>
-#               Arch Haskell Team <arch-haskell@haskell.org>
-
-_hkgname={_hkgname}
-pkgname={pkgname}
-pkgver={pkgver}
-pkgrel={pkgrel}
-pkgdesc="{pkgdesc}"
-url="http://hackage.haskell.org/package/{_hkgname}"
-license=('{license}')
-arch=({arch})
-makedepends=({makedepends})
-depends=({depends})
-options=({options})
-source=("http://hackage.haskell.org/packages/archive/\
-{_hkgname}/{pkgver}/{_hkgname}-{pkgver}.tar.gz")
-install="{pkgname}.install"
-sha512sums=('{checksum}')
-
-build() {{
-    cd "${{srcdir}}/{_hkgname}-{pkgver}"
-    runhaskell Setup configure \\
-        -O \\
-        ${{PKGBUILD_HASKELL_ENABLE_PROFILING:+-p }} \\
-        --enable-split-objs \\
-        --enable-shared \\
-        --prefix="/usr" \\
-        --docdir="/usr/share/doc/{pkgname}" \\
-        --libsubdir='$compiler/site-local/$pkgid'
-    runhaskell Setup build
-    runhaskell Setup haddock
-    runhaskell Setup register   --gen-script
-    runhaskell Setup unregister --gen-script
-    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
-}}
-
-package() {{
-    cd "${{srcdir}}/{_hkgname}-{pkgver}"
-    install -D -m744 register.sh \\
-        "${{pkgdir}}/usr/share/haskell/{pkgname}/register.sh"
-    install -m744 unregister.sh \\
-        "${{pkgdir}}/usr/share/haskell/{pkgname}/unregister.sh"
-    install -d -m755 "${{pkgdir}}/usr/share/doc/ghc/html/libraries"
-
-    # Documentation
-    ln -s "/usr/share/doc/{pkgname}/html" \\
-        "${{pkgdir}}/usr/share/doc/ghc/html/libraries/{_hkgname}"
-
-    # License
-    install -D -m644 LICENSE \\
-        "${{pkgdir}}/usr/share/licenses/{pkgname}/LICENSE"
-    rm -f "${{pkgdir}}/usr/share/doc/{pkgname}/LICENSE"
-
-    runhaskell Setup copy --destdir="${{pkgdir}}"
-}}
-"""
-
-INSTALL_TEMPLATE = """HS_DIR=usr/share/haskell/{pkgname}
-
-#pre_install() {{
-#  echo "insert pre_install routine here"
-#}}
-
-post_install() {{
-  ${{HS_DIR}}/register.sh
-  (cd usr/share/doc/ghc/html/libraries; ./gen_contents_index)
-}}
-
-pre_upgrade() {{
-  ${{HS_DIR}}/unregister.sh
-}}
-
-post_upgrade() {{
-  ${{HS_DIR}}/register.sh
-  (cd usr/share/doc/ghc/html/libraries; ./gen_contents_index)
-}}
-
-pre_remove() {{
-  ${{HS_DIR}}/unregister.sh
-}}
-
-post_remove() {{
-  (cd usr/share/doc/ghc/html/libraries; ./gen_contents_index)
-}}
-"""
-
+MKPKGBUILD_DIRECTORY = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+PKGBUILD_TEMPLATE = MKPKGBUILD_DIRECTORY + '/PKGBUILD.template'
+INSTALL_TEMPLATE = MKPKGBUILD_DIRECTORY + '/pkgname.install.template'
 # TODO Make this inputable
 GHC_INSTALLED_VERSION = "7.6.3-1"
 
-# For debug/testing purposes
-PACKAGES = ('transformers',
-            'mtl',
-            'text',
-            'parsec',
-            'network',
-            'random',
-            'zlib',
-            'utf8-string',
-            'extensible-exceptions',
-            'terminfo',
-            'haskeline',
-            'mmap',
-            'dataenc',
-            'hashed-storage',
-            'hslogger',
-            'html',
-            'HTTP',
-            'primitive',
-            'regex-base',
-            'regex-posix',
-            'regex-compat',
-            'syb',
-            'tar',
-            'vector',
-            'bytestring-show',
-            'X11',
-            'X11-xft',
-            'cabal-install',
-            'hasktags',
-            'xmonad',
-            'xmonad-contrib',
-            'xmonad-utils')
-
 
 class CancelledError(Exception): pass
+
+
+class Maintainer():
+
+    def __init__(self, name, alias, email):
+        """The individual who maintains a package"""
+        self.name = name
+        self.alias = alias
+        self.email = email
+
+    def __repr__(self):
+        return "Maintainer({0.name!r}, {0.alias!r}, {0.email!r})".format(self)
+
+    def __str__(self):
+        return "({0.name!r}, {0.alias!r}, {0.email!r})".format(self)
+
+
+class Contributor():
+
+    def __init__(self, name, alias, email):
+        """The individual who has contributed to a package"""
+        self.name = name
+        self.alias = alias
+        self.email = email
+
+    def __repr__(self):
+        return "Contributor({0.name!r}, {0.alias!r}, {0.email!r})".format(self)
+
+    def __str__(self):
+        return "({0.name!r}, {0.alias!r}, {0.email!r})".format(self)
+
+
+class Package():
+
+    def __init__(self, _hkgname, pkgname, pkgver, pkgrel, pkgdesc, arch, url,
+            license, groups, depends, optdepends, makedepends, checkdepends,
+            provides, conflicts, replaces, options, install, changelog, source,
+            checksum):
+        """The package itself"""
+        self._hkgname       = _hkgname
+        self.pkgname        = pkgname
+        self.pkgver         = pkgver
+        self.pkgrel         = pkgrel
+        self.pkgdesc        = pkgdesc
+        self.arch           = arch
+        self.url            = url
+        self.license        = license
+        self.groups         = groups
+        self.depends        = depends
+        self.optdepends     = optdepends
+        self.makedepends    = makedepends
+        self.checkdepends   = checkdepends
+        self.provides       = provides
+        self.conflicts      = conflicts
+        self.replaces       = replaces
+        self.options        = options
+        self.install        = install
+        self.changelog      = changelog
+        self.source         = source
+        self.checksum       = checksum
+
+    def __repr__(self):
+        return "Package({0._hkgname!r}, {0.pkgname!r}, {0.pkgver!r}, {0.pkgrel!r}, {0.pkgdesc!r},
+                {0.arch!r}, {0.url!r}, {0.license!r}, {0.groups!r}, {0.depends!r}, {0.optdepends!r},
+                {0.makedepends!r}, {0.checkdepends!r}, {0.provides!r}, {0.conflicts!r},
+                {0.replaces!r}, {0.options!r}, {0.install!r}, {0.changelog!r}, {0.source!r},
+                {0.checksum!r})".format(self)
+
+    def __str__(self):
+        return "({0._hkgname!r}, {0.pkgname!r}, {0.pkgver!r}, {0.pkgrel!r}, {0.pkgdesc!r},
+                {0.arch!r}, {0.url!r}, {0.license!r}, {0.groups!r}, {0.depends!r}, {0.optdepends!r},
+                {0.makedepends!r}, {0.checkdepends!r}, {0.provides!r}, {0.conflicts!r},
+                {0.replaces!r}, {0.options!r}, {0.install!r}, {0.changelog!r}, {0.source!r},
+                {0.checksum!r})".format(self)
 
 
 def main():                           
@@ -297,9 +250,7 @@ def scrape_dependencies(url):
 
 # TODO Handle non-existent values, return a dict instead of separate values
 # (only parse the file once)
-
 def read_pkgbuild(pkgname):
-
     string_keys = {
         'pkgname',
         'pkgver',
@@ -326,45 +277,48 @@ def read_pkgbuild(pkgname):
     }
 
     pkgbuild = dict()
- 
-    with open(pkgname + '/PKGBUILD') as filebuffer:
-        lines = filebuffer.readlines()
-        # 'with' statement closes :)
-
-    p = None
-
-    for l in lines:
-        # If a line ends with \, it continues on the next line
-        if l.endswith('\\\n'):
-            p = l.rstrip('\\\n')
-            continue
-        else:
-            if p:
-                l = p + l
-                p = None
-
-            key, sep, value = l.partition('=')
-            if not sep:
-                continue
-
-            key = key.strip()
-            value = value.strip()
-
-            if key in string_keys:
-                pkgbuild[key] = value.rstrip('\n').strip('"\'')
-            elif key in array_keys:
-                # This is... inaccurate?
-                if not key.startswith('(') and key.endswith(')'):
-                    raise ValueError('cannot parse array line %r' % (line,))
-                pkgbuild[key] = value.rstrip('\n').strip('()"')
     
-    missing_keys = (string_keys | array_keys) - set(pkgbuild)
-    #if missing_keys:
-        # This may not be necessary. I do not know.
-        #raise ValueError('missing keys: %s' % (', '.join(missing_keys)))
-        #print('missing keys: %s' % (', '.join(missing_keys)))
+    try:
+        with open(pkgname + '/PKGBUILD') as filebuffer:
+            lines = filebuffer.readlines()
+            # 'with' statement closes :)
 
-    return pkgbuild
+        p = None
+
+        for l in lines:
+            # If a line ends with \, it continues on the next line
+            if l.endswith('\\\n'):
+                p = l.rstrip('\\\n')
+                continue
+            else:
+                if p:
+                    l = p + l
+                    p = None
+
+                key, sep, value = l.partition('=')
+                if not sep:
+                    continue
+
+                key = key.strip()
+                value = value.strip()
+
+                if key in string_keys:
+                    pkgbuild[key] = value.rstrip('\n').strip('"\'')
+                elif key in array_keys:
+                    # This is... inaccurate?
+                    if not key.startswith('(') and key.endswith(')'):
+                        raise ValueError('cannot parse array line %r' % (line,))
+                    pkgbuild[key] = value.rstrip('\n').strip('()"')
+        
+        missing_keys = (string_keys | array_keys) - set(pkgbuild)
+        #if missing_keys:
+            # This may not be necessary. I do not know.
+            #raise ValueError('missing keys: %s' % (', '.join(missing_keys)))
+            #print('missing keys: %s' % (', '.join(missing_keys)))
+
+        return pkgbuild
+    except IOError:
+        print("No previous PKGBUILD found.")
 
 
 def create_directory(path):

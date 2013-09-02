@@ -1,0 +1,59 @@
+# {repository} Packages for Chakra, part of www.chakra-project.org
+# Maintainer: {maintainer_name} ({maintainer_alias}) <{maintainer_email}>
+# Contributors: Stephen McIntosh <stephenmac7[at]gmail[dot]com>
+#               Thomas Dziedzic <gostrc@gmail.com>
+#               Vesa Kaihlavirta <vesa@archlinux.org>
+#               Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname={_hkgname}
+pkgname={pkgname}
+pkgver={pkgver}
+pkgrel={pkgrel}
+pkgdesc="{pkgdesc}"
+url="http://hackage.haskell.org/package/{_hkgname}"
+license=('{license}')
+arch=({arch})
+makedepends=({makedepends})
+depends=({depends})
+options=({options})
+source=("http://hackage.haskell.org/packages/archive/\
+{_hkgname}/{pkgver}/{_hkgname}-{pkgver}.tar.gz")
+install="{pkgname}.install"
+sha512sums=('{checksum}')
+
+build() {{
+    cd "${{srcdir}}/{_hkgname}-{pkgver}"
+    runhaskell Setup configure \\
+        -O \\
+        ${{PKGBUILD_HASKELL_ENABLE_PROFILING:+-p }} \\
+        --enable-split-objs \\
+        --enable-shared \\
+        --prefix="/usr" \\
+        --docdir="/usr/share/doc/{pkgname}" \\
+        --libsubdir='$compiler/site-local/$pkgid'
+    runhaskell Setup build
+    runhaskell Setup haddock
+    runhaskell Setup register   --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}}
+
+package() {{
+    cd "${{srcdir}}/{_hkgname}-{pkgver}"
+    install -D -m744 register.sh \\
+        "${{pkgdir}}/usr/share/haskell/{pkgname}/register.sh"
+    install -m744 unregister.sh \\
+        "${{pkgdir}}/usr/share/haskell/{pkgname}/unregister.sh"
+    install -d -m755 "${{pkgdir}}/usr/share/doc/ghc/html/libraries"
+
+    # Documentation
+    ln -s "/usr/share/doc/{pkgname}/html" \\
+        "${{pkgdir}}/usr/share/doc/ghc/html/libraries/{_hkgname}"
+
+    # License
+    install -D -m644 LICENSE \\
+        "${{pkgdir}}/usr/share/licenses/{pkgname}/LICENSE"
+    rm -f "${{pkgdir}}/usr/share/doc/{pkgname}/LICENSE"
+
+    runhaskell Setup copy --destdir="${{pkgdir}}"
+}}
